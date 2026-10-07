@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ITI-Mitra</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>ITI-Mitra</h1>
+      <p>RAG-Enabled AI Chatbot for ITI Trainees</p>
+      <p style="font-size: 0.9rem; color: #cbd5e1;">Admission • Exam • Scholarship • Apprenticeship • Jobs</p>
+    </header>
+
+    <div class="main-content">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h3>Upload Documents</h3>
+          <div class="upload-area" id="dropZone">
+            <p>Drag files here or click to browse</p>
+            <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" style="display: none;" />
+          </div>
+          <button id="uploadBtn" class="btn-upload">Choose Files</button>
+          <p id="uploadStatus" style="margin-top: 10px; font-size: 0.9rem; color: #cbd5e1;"></p>
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Knowledge Base</h3>
+          <div id="kbStats" class="kb-stats">
+            <p>Loading...</p>
+          </div>
+          <button id="clearKBBtn" class="btn-secondary">Clear Knowledge Base</button>
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Indexed Files</h3>
+          <div id="filesList" class="files-list">
+            <p style="color: #94a3b8; font-size: 0.9rem;">No files indexed</p>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-container">
+        <div id="chatBox" class="chat-box">
+          <div class="message bot">
+            Hello! I am ITI-Mitra. Upload documents to the left, then ask me questions about them.
+          </div>
+        </div>
+
+        <form id="chatForm" class="chat-form">
+          <input
+            id="userInput"
+            type="text"
+            placeholder="Ask your ITI question..."
+            autocomplete="off"
+          />
+          <button type="submit">Send</button>
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
