@@ -1,229 +1,60 @@
-# ITI-Mitra: RAG-Enabled AI Chatbot
+# ITI-Mitra: RAG chatbot for ITI trainees
 
-ITI-Mitra is a powerful Retrieval-Augmented Generation (RAG) chatbot designed specifically for ITI trainees. It helps with:
+Answers trainee questions on **admission, exams, scholarships, apprenticeship and jobs** strictly from the
+documents your office uploads (PDF / DOCX / TXT). Hindi, English and Hinglish are supported.
 
-- **Admission Information** - Application procedures, eligibility criteria, course details
-- **Examination Guidance** - Exam preparation, schedules, exam formats
-- **Scholarship Help** - Available scholarships, eligibility, application process
-- **Apprenticeship Support** - How to apply, benefits, industry opportunities
-- **Job Opportunities** - Career paths, job search strategies, placement assistance
+## What is in this version
+- **Student page** (`/`) – chat only. **Admin page** (`/admin.html`) – upload, list, delete; protected by `ADMIN_API_KEY`.
+- Upload hardening: sanitised filenames, extension and size checks, no path traversal; frontend uses `textContent` (no XSS).
+- No pickle: index is `store.json` + `embeddings.npy`. Re-uploading a file **replaces** it; single files can be deleted.
+- Hindi-aware chunking (handles the danda `।`), overlap, page numbers in sources, optional document date/category.
+- Relevance threshold: if nothing relevant is found the bot says so and shows the helpline text – the LLM is not called.
+- Conversation memory (last turns, kept in the browser), higher answer length, batched embeddings, vectorised search.
+- Per-IP rate limit on `/chat`, generic error messages (details only in the server log), CORS limited to configured origins.
+- Optional OCR for scanned / legacy-font PDFs.
+- **Feedback and gaps:** 👍/👎 under each answer, and an admin panel listing the questions the bot could not answer (grouped, with counts) and the answers marked 👎, so you know which documents to upload next. Phone/Aadhaar-like numbers and e-mails are masked before storing; no IP or user id is kept; rows are deleted after `RETENTION_DAYS` (default 90). Turn off with `LOG_QUESTIONS=false`.
+- Tests: `pytest` (22 tests, no network or API key needed).
 
-## Key Features
-
-✅ **RAG-Enabled**: Upload PDF, DOCX, and TXT documents - the system automatically indexes them
-✅ **No Login Required**: Open access for all ITI trainees
-✅ **Smart Search**: Uses OpenAI embeddings to find relevant information
-✅ **Source Attribution**: Shows which documents provided the answer
-✅ **Real-time Upload**: Add or remove knowledge base documents anytime
-✅ **Clean UI**: Intuitive interface for easy interaction
-
-## Tech Stack
-
-**Backend:**
-- FastAPI
-- OpenAI API (embeddings & GPT)
-- Vector Store (disk-based with pickle)
-- File Processing (PDF, DOCX, TXT)
-
-**Frontend:**
-- HTML5 / CSS3
-- Vanilla JavaScript
-- Responsive Design
-
-## Setup & Installation
-
-### 1. Clone the repository
+## Setup
 ```bash
-git clone <repo-url>
-cd ITI-Mitra
-```
-
-### 2. Create virtual environment
-```bash
-python -m venv venv
-source venv/bin/activate   # Linux/macOS
-venv\Scripts\activate      # Windows
-```
-
-### 3. Install dependencies
-```bash
+python -m venv venv && source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+cp .env.example .env     # set OPENAI_API_KEY and ADMIN_API_KEY
+uvicorn backend.app:app --reload --port 8000        # run from the project root
 ```
+Open http://localhost:8000/ (students) and http://localhost:8000/admin.html (admin; paste your `ADMIN_API_KEY`).
 
-### 4. Configure environment
+Generate an admin key: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+
+### OCR (optional, for scanned PDFs)
 ```bash
-cp .env.example .env
+sudo apt install tesseract-ocr tesseract-ocr-hin poppler-utils
+pip install -r requirements-ocr.txt
 ```
+Without OCR, scanned or legacy-font PDFs are rejected with a clear message instead of being indexed as garbage.
 
-Edit `.env` and add your OpenAI API key:
-```env
-OPENAI_API_KEY=sk-your-actual-key
-OPENAI_MODEL=gpt-4o-mini
-VECTOR_DB_PATH=./vector_db
-UPLOAD_DIR=./uploads
-```
-
-### 5. Start the backend
+### Tests
 ```bash
-cd backend
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
+pip install -r requirements-dev.txt && pytest
 ```
 
-### 6. Open the frontend
+## API
+Public: `GET /health`, `POST /chat` `{ "message": "...", "history": [{"role":"user|assistant","content":"..."}] }`
 
-Option A: Open `frontend/index.html` directly in your browser
+Admin (header `X-API-Key`): `GET /admin/files`, `POST /admin/upload` (form: `file`, optional `category`, `issue_date`),
+`DELETE /admin/files/{filename}`, `DELETE /admin/knowledge-base`, `GET|DELETE /admin/insights`.
+Public feedback: `POST /feedback` `{ "rating": "up|down", "question": "...", "reply": "...", "comment": "" }`.
 
-Option B: Serve locally
-```bash
-cd frontend
-python -m http.server 3000
-# Open http://localhost:3000
-```
+## Deployment notes
+- Use a **persistent disk/volume** for `vector_db/` and `uploads/` (free tiers that wipe the disk lose your index).
+- Run **one worker** (the index and rate limiter live in process memory). For several workers use a shared vector DB and Redis.
+- Put it behind HTTPS. Set `TRUST_PROXY=true` only if a trusted reverse proxy sets `X-Forwarded-For`.
+- Docker: `docker build -t iti-mitra . && docker run -p 8000:8000 --env-file .env -v $PWD/data/vector_db:/app/vector_db -v $PWD/data/uploads:/app/uploads iti-mitra`
 
-## Usage
+## Privacy
+Questions and document text are sent to OpenAI to create embeddings and answers. Check this against your department's
+data policy before going public, and keep personal data out of uploads. The server stores no chat history; it only keeps the masked unanswered-question / feedback log described above.
 
-1. **Upload Documents**: Drag and drop PDF/DOCX/TXT files in the sidebar
-2. **Wait for Indexing**: The system will automatically process and index the documents
-3. **Ask Questions**: Type your question in the chat box
-4. **Get Answers**: The chatbot retrieves relevant information and provides answers with source attribution
-
-## API Endpoints
-
-### Health Check
-```bash
-GET /health
-```
-Returns the status and vector DB statistics.
-
-### Upload File
-```bash
-POST /upload
-Content-Type: multipart/form-data
-
-Body:
-- file: <binary file content>
-```
-
-### Chat
-```bash
-POST /chat
-Content-Type: application/json
-
-Body:
-{
-  "message": "Your question here"
-}
-```
-
-Response:
-```json
-{
-  "reply": "Answer from the chatbot",
-  "sources": ["document1.pdf", "document2.docx"]
-}
-```
-
-### Get Knowledge Base Stats
-```bash
-GET /knowledge-base
-```
-
-### Get Indexed Files
-```bash
-GET /files-indexed
-```
-
-### Clear Knowledge Base
-```bash
-DELETE /knowledge-base
-```
-
-## File Support
-
-- **PDF** (.pdf) - Text extraction from all pages
-- **Word Documents** (.docx) - Text and table extraction
-- **Text Files** (.txt) - Plain text files
-
-## Example Workflow
-
-1. Admin uploads `admission_guide.pdf`, `scholarship_info.docx`, `job_placements.txt`
-2. Student asks: "What are the eligibility criteria for ITI admission?"
-3. Chatbot searches the vector database for relevant chunks
-4. Responds with information from `admission_guide.pdf`
-5. Shows source: "📄 admission_guide.pdf"
-
-## Performance
-
-- **Embedding Model**: text-embedding-3-small (fast & cost-effective)
-- **LLM**: gpt-4o-mini (fast responses, lower cost)
-- **Storage**: Disk-based vector store (persists between sessions)
-- **Latency**: ~1-2 seconds per query
-
-## Security & Privacy
-
-- No user login/authentication (open access)
-- Documents stored locally in `./uploads` and `./vector_db`
-- API keys stored in `.env` (not committed to git)
-- No user data is tracked or logged
-
-## Troubleshooting
-
-### Issue: "Connection error"
-**Solution**: Ensure backend is running on `http://localhost:8000`
-
-### Issue: "No documents indexed"
-**Solution**: Upload documents using the sidebar file uploader
-
-### Issue: "OpenAI API error"
-**Solution**: Check if your API key is valid and has sufficient credits
-
-### Issue: "File upload fails"
-**Solution**: Ensure file is supported (.pdf, .docx, .txt) and not corrupted
-
-## Deployment
-
-### Option 1: Render + Vercel
-
-**Backend on Render:**
-1. Push to GitHub
-2. Create new Web Service on Render
-3. Set `python -m uvicorn backend.app:app --host 0.0.0.0 --port $PORT`
-4. Set environment variables
-
-**Frontend on Vercel:**
-1. Set `API_URL` environment variable in frontend/script.js
-2. Deploy to Vercel
-
-### Option 2: Docker
-
-```dockerfile
-FROM python:3.11
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-## Future Enhancements
-
-- [ ] Multi-language support (Hindi, Tamil, etc.)
-- [ ] Chat history persistence
-- [ ] Admin panel for document management
-- [ ] Advanced search filters
-- [ ] Integration with state ITI databases
-- [ ] Mobile app version
-- [ ] Analytics and usage tracking
-
-## License
-
-MIT License - Feel free to use and modify
-
-## Support
-
-For issues or feature requests, open a GitHub issue or contact the maintainers.
-
----
-
-**Made with ❤️ for ITI Trainees**
+## Known limits / next steps
+Metadata filters by category, WhatsApp/Telegram channel, voice input,
+and a managed vector database (pgvector / Qdrant) for larger collections.

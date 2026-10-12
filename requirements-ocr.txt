@@ -1,0 +1,4 @@
+# Optional: OCR fallback for scanned / legacy-font Hindi PDFs.
+# Also needs system packages: tesseract-ocr, tesseract-ocr-hin, poppler-utils
+pytesseract>=0.3.10
+pdf2image>=1.17
