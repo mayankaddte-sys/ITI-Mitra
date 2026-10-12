@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>ITI-Mitra Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>ITI-Mitra — Admin</h1>
+      <p>Manage the knowledge base</p>
+    </header>
+
+    <div class="admin-wrap">
+      <section class="panel" id="loginPanel">
+        <h3>Admin key</h3>
+        <input id="keyInput" type="password" placeholder="ADMIN_API_KEY" autocomplete="off" />
+        <button id="loginBtn" class="btn-upload">Unlock</button>
+        <p id="loginStatus" class="status"></p>
+      </section>
+
+      <div id="adminPanels" hidden>
+        <section class="panel">
+          <h3>Upload document (PDF / DOCX / TXT)</h3>
+          <div class="upload-area" id="dropZone"><p>Drag a file here or click to browse</p></div>
+          <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt" hidden />
+          <div class="row">
+            <select id="category">
+              <option value="">Category (optional)</option>
+              <option>Admission</option>
+              <option>Exam</option>
+              <option>Scholarship</option>
+              <option>Apprenticeship</option>
+              <option>Jobs</option>
+              <option>Other</option>
+            </select>
+            <input id="issueDate" type="date" title="Issue date of the circular (optional)" />
+          </div>
+          <p class="hint">Re-uploading a file with the same name replaces the old version.</p>
+          <p id="uploadStatus" class="status"></p>
+        </section>
+
+        <section class="panel">
+          <h3>Indexed documents</h3>
+          <div id="kbStats" class="kb-stats"></div>
+          <div id="filesList" class="files-list"></div>
+          <button id="clearKBBtn" class="btn-secondary">Clear entire knowledge base</button>
+          <button id="logoutBtn" class="btn-plain">Lock</button>
+        </section>
+
+        <section class="panel">
+          <h3>What trainees asked that I could not answer</h3>
+          <p class="hint">Upload documents covering these topics. Personal numbers and e-mails are masked automatically.</p>
+          <div id="insightTotals" class="kb-stats"></div>
+          <h4>Unanswered questions</h4>
+          <div id="unansweredList" class="files-list"></div>
+          <h4>Answers marked 👎</h4>
+          <div id="downList" class="files-list"></div>
+          <button id="clearInsightsBtn" class="btn-plain">Clear this log</button>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

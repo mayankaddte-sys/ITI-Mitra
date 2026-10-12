@@ -1,179 +1,105 @@
-const API_URL = "http://localhost:8000";
+const API_URL = window.ITI_MITRA_API_URL || "";
 const chatForm = document.getElementById("chatForm");
 const userInput = document.getElementById("userInput");
+const sendBtn = document.getElementById("sendBtn");
 const chatBox = document.getElementById("chatBox");
-const fileInput = document.getElementById("fileInput");
-const uploadBtn = document.getElementById("uploadBtn");
-const dropZone = document.getElementById("dropZone");
-const uploadStatus = document.getElementById("uploadStatus");
-const kbStats = document.getElementById("kbStats");
-const filesList = document.getElementById("filesList");
-const clearKBBtn = document.getElementById("clearKBBtn");
+const chips = document.getElementById("chips");
+
+const history = []; // [{role, content}] kept in the browser only; the server stores nothing
+
+const QUICK_QUESTIONS = [
+  ["प्रवेश / Admission", "आईटीआई में प्रवेश के लिए पात्रता क्या है?"],
+  ["परीक्षा / Exam", "Exam schedule and exam pattern kya hai?"],
+  ["छात्रवृत्ति / Scholarship", "कौन-कौन सी छात्रवृत्तियाँ उपलब्ध हैं?"],
+  ["Apprenticeship", "How can I apply for apprenticeship?"],
+  ["नौकरी / Jobs", "आईटीआई के बाद नौकरी और प्लेसमेंट के अवसर क्या हैं?"],
+];
 
 function addMessage(text, type, sources = []) {
   const div = document.createElement("div");
   div.className = `message ${type}`;
-  div.textContent = text;
-  
-  if (sources.length > 0) {
-    const sourcesDiv = document.createElement("div");
-    sourcesDiv.className = "message-sources";
-    sourcesDiv.textContent = `Sources: ${sources.join(", ")}`;
-    div.appendChild(sourcesDiv);
+  div.textContent = text; // never innerHTML: model output / filenames are untrusted
+  div.style.whiteSpace = "pre-wrap";
+  if (sources.length) {
+    const s = document.createElement("div");
+    s.className = "message-sources";
+    s.textContent = `Sources / स्रोत: ${sources.join(", ")}`;
+    div.appendChild(s);
   }
-  
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
+  return div;
 }
 
-async function updateKBStats() {
-  try {
-    const response = await fetch(`${API_URL}/knowledge-base`);
-    const data = await response.json();
-    
-    kbStats.innerHTML = `
-      <p><strong>Total Chunks:</strong> ${data.total_chunks}</p>
-      <p><strong>Files:</strong> ${data.files_indexed}</p>
-    `;
-  } catch (error) {
-    kbStats.innerHTML = "<p>Error loading stats</p>";
-  }
+function addFeedback(messageDiv, question, reply) {
+  const row = document.createElement("div");
+  row.className = "feedback";
+  const label = document.createElement("span");
+  label.textContent = "क्या यह उत्तर उपयोगी था? / Helpful? ";
+  row.appendChild(label);
+  ["up", "down"].forEach((rating) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = rating === "up" ? "👍" : "👎";
+    b.addEventListener("click", async () => {
+      row.querySelectorAll("button").forEach((x) => (x.disabled = true));
+      label.textContent = "धन्यवाद! / Thanks! ";
+      try {
+        await fetch(`${API_URL}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rating, question, reply }),
+        });
+      } catch (e) { /* feedback is best-effort */ }
+    });
+    row.appendChild(b);
+  });
+  messageDiv.appendChild(row);
 }
 
-async function updateFilesList() {
-  try {
-    const response = await fetch(`${API_URL}/files-indexed`);
-    const data = await response.json();
-    
-    if (data.count === 0) {
-      filesList.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No files indexed</p>';
-    } else {
-      filesList.innerHTML = data.files.map(f => `<div class="file-item">📄 ${f}</div>`).join("");
-    }
-  } catch (error) {
-    filesList.innerHTML = "<p>Error loading files</p>";
-  }
-}
-
-updateKBStats();
-updateFilesList();
-
-uploadBtn.addEventListener("click", () => fileInput.click());
-
-dropZone.addEventListener("click", () => fileInput.click());
-
-dropZone.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  dropZone.classList.add("dragover");
-});
-
-dropZone.addEventListener("dragleave", () => {
-  dropZone.classList.remove("dragover");
-});
-
-dropZone.addEventListener("drop", async (e) => {
-  e.preventDefault();
-  dropZone.classList.remove("dragover");
-  const files = e.dataTransfer.files;
-  await uploadFiles(files);
-});
-
-fileInput.addEventListener("change", async () => {
-  await uploadFiles(fileInput.files);
-  fileInput.value = "";
-});
-
-async function uploadFiles(files) {
-  if (files.length === 0) return;
-
-  uploadStatus.textContent = `Uploading ${files.length} file(s)...`;
-  
-  for (const file of files) {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      const response = await fetch(`${API_URL}/upload`, {
-        method: "POST",
-        body: formData
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        uploadStatus.textContent = `✓ ${file.name} uploaded successfully`;
-        uploadStatus.style.color = "#4ade80";
-        
-        setTimeout(() => {
-          updateKBStats();
-          updateFilesList();
-          uploadStatus.textContent = "";
-        }, 1000);
-      } else {
-        uploadStatus.textContent = `✗ Error: ${data.detail}`;
-        uploadStatus.style.color = "#ef4444";
-      }
-    } catch (error) {
-      uploadStatus.textContent = `✗ Upload failed: ${error.message}`;
-      uploadStatus.style.color = "#ef4444";
-    }
-  }
-}
-
-clearKBBtn.addEventListener("click", async () => {
-  if (confirm("Are you sure? This will delete all indexed documents.")) {
-    try {
-      const response = await fetch(`${API_URL}/knowledge-base`, {
-        method: "DELETE"
-      });
-      const data = await response.json();
-      uploadStatus.textContent = "Knowledge base cleared";
-      uploadStatus.style.color = "#fbbf24";
-      
-      setTimeout(() => {
-        updateKBStats();
-        updateFilesList();
-        uploadStatus.textContent = "";
-      }, 1000);
-    } catch (error) {
-      uploadStatus.textContent = `Error: ${error.message}`;
-      uploadStatus.style.color = "#ef4444";
-    }
-  }
-});
-
-chatForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const question = userInput.value.trim();
-  if (!question) return;
-
+async function ask(question) {
   addMessage(question, "user");
-  userInput.value = "";
-  addMessage("Thinking...", "bot");
-
+  const thinking = addMessage("सोच रहा हूँ… / Thinking…", "bot");
+  sendBtn.disabled = true;
   try {
     const response = await fetch(`${API_URL}/chat`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ message: question })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: question, history: history.slice(-6) }),
     });
-
-    const data = await response.json();
-    const botMessages = document.querySelectorAll(".message.bot");
-    const lastBot = botMessages[botMessages.length - 1];
-
-    if (lastBot && lastBot.textContent === "Thinking...") {
-      lastBot.remove();
-      addMessage(data.reply || "Sorry, I couldn't find an answer.", "bot", data.sources || []);
+    const data = await response.json().catch(() => ({}));
+    thinking.remove();
+    if (!response.ok) {
+      const detail = typeof data.detail === "string" ? data.detail : "Something went wrong. Please try again.";
+      addMessage(detail, "bot");
+      return;
     }
-  } catch (error) {
-    const botMessages = document.querySelectorAll(".message.bot");
-    const lastBot = botMessages[botMessages.length - 1];
-    if (lastBot && lastBot.textContent === "Thinking...") {
-      lastBot.textContent = `Connection error: ${error.message}`;
-    }
+    const botDiv = addMessage(data.reply || "Sorry, I couldn't find an answer.", "bot", data.sources || []);
+    if ((data.sources || []).length) addFeedback(botDiv, question, data.reply || "");
+    history.push({ role: "user", content: question }, { role: "assistant", content: data.reply || "" });
+    if (history.length > 12) history.splice(0, history.length - 12);
+  } catch (err) {
+    thinking.remove();
+    addMessage("Connection error. Please check your internet and try again. / कनेक्शन त्रुटि।", "bot");
+  } finally {
+    sendBtn.disabled = false;
+    userInput.focus();
   }
+}
+
+chatForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = userInput.value.trim();
+  if (!q) return;
+  userInput.value = "";
+  ask(q);
+});
+
+QUICK_QUESTIONS.forEach(([label, question]) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "chip";
+  b.textContent = label;
+  b.addEventListener("click", () => ask(question));
+  chips.appendChild(b);
 });
