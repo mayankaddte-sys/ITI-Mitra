@@ -9,9 +9,11 @@ import logging
 import os
 import re
 import threading
+import time
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+from openai import RateLimitError
 
 from . import config
 from .openai_client import get_client
@@ -79,8 +81,24 @@ class VectorStore:
         out: List[List[float]] = []
         for i in range(0, len(texts), config.EMBED_BATCH):
             batch = list(texts[i : i + config.EMBED_BATCH])
-            resp = client.embeddings.create(model=config.EMBEDDING_MODEL, input=batch)
-            out.extend(d.embedding for d in sorted(resp.data, key=lambda d: d.index))
+            # Free API tiers limit requests/tokens per minute: wait and retry on 429 instead of failing.
+            for attempt in range(5):
+                try:
+                    resp = client.embeddings.create(model=config.EMBEDDING_MODEL, input=batch)
+                    break
+                except RateLimitError:
+                    if attempt == 4:
+                        raise
+                    wait = 15 * (attempt + 1)
+                    log.warning("Embedding rate limit hit; waiting %ss (attempt %s/5)", wait, attempt + 1)
+                    time.sleep(wait)
+            items = list(resp.data)
+            # OpenAI returns an index per item; Gemini's compatible endpoint may leave it empty.
+            if all(d.index is not None for d in items):
+                items.sort(key=lambda d: d.index)
+            out.extend(d.embedding for d in items)
+            if i + config.EMBED_BATCH < len(texts):
+                time.sleep(config.EMBED_PAUSE_SECONDS)
         arr = np.asarray(out, dtype=np.float32)
         norms = np.linalg.norm(arr, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
