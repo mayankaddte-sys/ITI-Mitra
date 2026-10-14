@@ -38,7 +38,7 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "").strip()
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
 VECTOR_DB_PATH = _path("VECTOR_DB_PATH", "./vector_db")
-UPLOAD_DIR = _path("UPLOAD_DIR", "./uploads")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
 FRONTEND_DIR = str(BASE_DIR / "frontend")
 
 TOP_K = _int("TOP_K", 5)
