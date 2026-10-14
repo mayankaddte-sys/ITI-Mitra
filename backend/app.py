@@ -20,11 +20,11 @@ from .vector_store import VectorStore
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("iti_mitra")
 
-   try:
-       os.makedirs(config.UPLOAD_DIR, exist_ok=True)
-   except PermissionError:
-       config.UPLOAD_DIR = "/tmp/uploads"
-       os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+try:
+    os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+except PermissionError:
+    config.UPLOAD_DIR = "/tmp/uploads"
+    os.makedirs(config.UPLOAD_DIR, exist_ok=True)
 app = FastAPI(title="ITI-Mitra RAG Chatbot")
 
 # Only the origins you list may call the API from a browser. Same-origin use (backend serves the
