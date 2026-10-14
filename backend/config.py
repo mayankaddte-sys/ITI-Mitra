@@ -16,6 +16,19 @@ def _path(name: str, default: str) -> str:
     return str(p.resolve())
 
 
+def _writable(name: str, default: str, fallback: str) -> str:
+    """Like _path, but falls back to a writable folder if the configured one cannot be created."""
+    p = Path(os.getenv(name, default))
+    if not p.is_absolute():
+        p = BASE_DIR / p
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        p = Path(fallback)
+        p.mkdir(parents=True, exist_ok=True)
+    return str(p.resolve())
+
+
 def _int(name: str, default: int) -> int:
     try:
         return int(os.getenv(name, default))
@@ -30,15 +43,16 @@ def _float(name: str, default: float) -> float:
         return default
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip() or None
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "").strip()
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
-VECTOR_DB_PATH = _path("VECTOR_DB_PATH", "./vector_db")
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
+VECTOR_DB_PATH = _writable("VECTOR_DB_PATH", "./vector_db", "/tmp/vector_db")
+UPLOAD_DIR = _writable("UPLOAD_DIR", "/tmp/uploads", "/tmp/uploads")
 FRONTEND_DIR = str(BASE_DIR / "frontend")
 
 TOP_K = _int("TOP_K", 5)
